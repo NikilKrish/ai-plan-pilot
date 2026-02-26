@@ -1,11 +1,22 @@
-// Update this page (the content is just a fallback if you fail to update the page)
+import DashboardHeader from '@/components/dashboard/DashboardHeader';
+import CapacityPredictor from '@/components/dashboard/CapacityPredictor';
+import FeasibilityValidator from '@/components/dashboard/FeasibilityValidator';
+import BottleneckDetection from '@/components/dashboard/BottleneckDetection';
+import WhatIfSimulation from '@/components/dashboard/WhatIfSimulation';
+import AIRecommendations from '@/components/dashboard/AIRecommendations';
 
 const Index = () => {
   return (
-    <div className="flex min-h-screen items-center justify-center bg-background">
-      <div className="text-center">
-        <h1 className="mb-4 text-4xl font-bold">Welcome to Your Blank App</h1>
-        <p className="text-xl text-muted-foreground">Start building your amazing project here!</p>
+    <div className="min-h-screen mesh-gradient-bg">
+      <div className="max-w-[1320px] mx-auto px-4 sm:px-6 lg:px-8 py-8">
+        <DashboardHeader />
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+          <CapacityPredictor />
+          <FeasibilityValidator />
+          <BottleneckDetection />
+          <WhatIfSimulation />
+          <AIRecommendations />
+        </div>
       </div>
     </div>
   );
