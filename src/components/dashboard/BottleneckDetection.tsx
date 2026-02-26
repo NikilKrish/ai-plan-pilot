@@ -1,14 +1,12 @@
 import { useState, useEffect, useRef } from 'react';
-
-const stations = [
-  { id: 'S12', label: 'Station S12 — Cycle Time Variance', color: 'accent-red', width: 92, insights: ['Peak variance: Shift 2', 'Suggested action: rebalance sequencing'] },
-  { id: 'S07', label: 'Station S07 — Downtime Spikes', color: 'accent-orange', width: 78, insights: ['Spike frequency: 3x/shift', 'Suggested action: preventive maintenance'] },
-  { id: 'S03', label: 'Station S03 — Scrap Loss', color: 'accent-purple', width: 65, insights: ['Scrap rate: 4.2%', 'Suggested action: quality check at input'] },
-  { id: 'S15', label: 'Station S15 — Changeover', color: 'accent-blue', width: 51, insights: ['Avg changeover: 18min', 'Suggested action: SMED optimization'] },
-];
+import { useApp } from '@/context/AppContext';
+import { stationsByLine, kbSnippets } from '@/data/sampleData';
+import { rankBottlenecks } from '@/data/mockEngine';
 
 const BottleneckDetection = () => {
+  const { selectedLineId } = useApp();
   const [expandedRow, setExpandedRow] = useState<number | null>(null);
+  const [recommendation, setRecommendation] = useState<string | null>(null);
   const [cursorPos, setCursorPos] = useState({ x: -40, y: -40 });
   const [cursorVisible, setCursorVisible] = useState(false);
   const [tooltipText, setTooltipText] = useState('');
@@ -17,40 +15,45 @@ const BottleneckDetection = () => {
   const [barsAnimated, setBarsAnimated] = useState(false);
   const containerRef = useRef<HTMLDivElement>(null);
 
-  useEffect(() => {
-    setBarsAnimated(true);
-  }, []);
+  const bottlenecks = rankBottlenecks(stationsByLine[selectedLineId]);
+  const displayStations = bottlenecks.slice(0, 4).map((b) => ({
+    id: b.stationId,
+    label: `${b.stationName} — ${b.reason}`,
+    color: b.rank === 1 ? 'accent-red' : b.rank <= 3 ? 'accent-orange' : 'accent-blue',
+    width: b.impactPct,
+    insights: [
+      `Effective cycle time: ${b.effectiveCycleTime.toFixed(1)}s`,
+      `Impact: ${b.impactPct}%`,
+    ],
+    reason: b.reason,
+  }));
 
+  useEffect(() => { setBarsAnimated(true); }, []);
+
+  // Auto-animation loop
   useEffect(() => {
     let cancelled = false;
-
     const runAnimation = async () => {
       while (!cancelled) {
-        // Reset
         setExpandedRow(null);
         setCursorVisible(false);
         setTooltipVisible(false);
-        await delay(1500);
+        setRecommendation(null);
+        await delay(3000);
         if (cancelled) return;
-
-        // Show cursor
         setCursorVisible(true);
         setCursorPos({ x: 200, y: 20 });
         await delay(400);
         if (cancelled) return;
-
-        // Animate through first 2 rows
         for (let i = 0; i < 2; i++) {
           if (cancelled) return;
           setCursorPos({ x: 200, y: 38 + i * 56 });
           await delay(600);
           if (cancelled) return;
-
           setTooltipText('Open Root Cause');
           setTooltipVisible(true);
           await delay(500);
           if (cancelled) return;
-
           setCursorClick(true);
           await delay(150);
           setCursorClick(false);
@@ -58,35 +61,47 @@ const BottleneckDetection = () => {
           setTooltipVisible(false);
           await delay(1800);
           if (cancelled) return;
-
           setExpandedRow(null);
           await delay(300);
         }
-
         setCursorVisible(false);
         await delay(2000);
       }
     };
-
     runAnimation();
     return () => { cancelled = true; };
   }, []);
+
+  const handleRowClick = (i: number) => {
+    setExpandedRow(expandedRow === i ? null : i);
+    setRecommendation(null);
+  };
+
+  const handleGenerateRec = (station: typeof displayStations[0]) => {
+    const snippet = kbSnippets.find((s) =>
+      station.reason.toLowerCase().includes('downtime') ? s.topic.includes('Downtime') :
+      station.reason.toLowerCase().includes('scrap') ? s.topic.includes('Scrap') :
+      s.topic.includes('Variance')
+    );
+    setRecommendation(`${station.label}: ${snippet?.content ?? 'Investigate further.'}`);
+  };
 
   return (
     <div className="bg-card rounded-3xl shadow-sm border border-border card-lift overflow-hidden">
       <div className="h-[280px] bg-visual-area border-b border-border relative p-5 shadow-inner" ref={containerRef}>
         <div className="bg-card rounded-2xl border border-border p-4 shadow-sm h-full overflow-hidden relative">
-          {/* Header */}
           <div className="flex items-center justify-between mb-3">
             <span className="text-sm font-semibold text-foreground">Bottlenecks</span>
             <span className="text-[10px] font-medium px-2 py-0.5 rounded-full bg-accent-red-light text-accent-red">Top Constraints</span>
           </div>
 
-          {/* Rows */}
           <div className="space-y-1">
-            {stations.map((station, i) => (
+            {displayStations.map((station, i) => (
               <div key={station.id}>
-                <div className="flex items-center gap-2 py-1.5 px-2 rounded-lg hover:bg-muted/50 transition-colors">
+                <div
+                  className="flex items-center gap-2 py-1.5 px-2 rounded-lg hover:bg-muted/50 transition-colors cursor-pointer"
+                  onClick={() => handleRowClick(i)}
+                >
                   <span className="text-[10px] font-bold text-muted-foreground w-6">{i + 1}</span>
                   <span className="text-[11px] font-medium text-foreground flex-1 truncate">{station.label}</span>
                   <div className="w-16 h-1.5 rounded-full bg-border overflow-hidden">
@@ -100,34 +115,35 @@ const BottleneckDetection = () => {
                     />
                   </div>
                 </div>
-                {/* Expanded drawer */}
-                <div
-                  className="overflow-hidden transition-all duration-300 ease-out"
-                  style={{ maxHeight: expandedRow === i ? '60px' : '0' }}
-                >
-                  <div className="pl-8 pr-2 py-1.5 space-y-0.5">
+                <div className="overflow-hidden transition-all duration-300 ease-out" style={{ maxHeight: expandedRow === i ? '90px' : '0' }}>
+                  <div className="pl-8 pr-2 py-1.5 space-y-1">
                     {station.insights.map((insight, j) => (
                       <div key={j} className="text-[10px] text-muted-foreground flex items-center gap-1.5">
                         <span className="w-1 h-1 rounded-full" style={{ backgroundColor: `hsl(var(--${station.color}))` }} />
                         {insight}
                       </div>
                     ))}
+                    <button
+                      onClick={(e) => { e.stopPropagation(); handleGenerateRec(station); }}
+                      className="text-[10px] font-semibold text-accent-purple hover:underline mt-0.5"
+                    >
+                      Generate Recommendation
+                    </button>
                   </div>
                 </div>
               </div>
             ))}
           </div>
 
-          {/* Mock cursor */}
+          {/* Recommendation callout */}
+          {recommendation && (
+            <div className="absolute bottom-2 left-2 right-2 bg-accent-purple-light border border-accent-purple/20 rounded-xl p-2 text-[10px] text-foreground z-30">
+              {recommendation}
+            </div>
+          )}
+
           {cursorVisible && (
-            <div
-              className="mock-cursor"
-              style={{
-                left: cursorPos.x,
-                top: cursorPos.y,
-                transform: cursorClick ? 'scale(0.9)' : 'scale(1)',
-              }}
-            >
+            <div className="mock-cursor" style={{ left: cursorPos.x, top: cursorPos.y, transform: cursorClick ? 'scale(0.9)' : 'scale(1)' }}>
               <svg width="20" height="20" viewBox="0 0 24 24" fill="hsl(var(--accent-blue))" stroke="white" strokeWidth="1.5">
                 <path d="M5 3l14 8-7 2-3 7z" />
               </svg>
@@ -146,8 +162,6 @@ const BottleneckDetection = () => {
   );
 };
 
-function delay(ms: number) {
-  return new Promise((resolve) => setTimeout(resolve, ms));
-}
+function delay(ms: number) { return new Promise((resolve) => setTimeout(resolve, ms)); }
 
 export default BottleneckDetection;
