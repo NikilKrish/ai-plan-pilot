@@ -1,13 +1,14 @@
 import { useState, useEffect } from 'react';
 import { NavLink } from 'react-router-dom';
 import { Outlet } from 'react-router-dom';
+import { pipelineHealth } from '@/data/pipelineData';
 
 const navItems = [
   { to: '/', label: 'Overview' },
   { to: '/planner', label: 'Planner' },
   { to: '/bottlenecks', label: 'Bottlenecks' },
   { to: '/simulations', label: 'Simulations' },
-  { to: '/reports', label: 'Reports' },
+  { to: '/reports', label: 'Ops & Feedback' },
 ];
 
 const AppLayout = () => {
@@ -16,6 +17,10 @@ const AppLayout = () => {
   useEffect(() => {
     document.documentElement.classList.toggle('dark', dark);
   }, [dark]);
+
+  const minutesAgo = Math.round((Date.now() - new Date(pipelineHealth.streaming.lastEventTs).getTime()) / 60_000);
+  const streamColor = pipelineHealth.streaming.status === 'Healthy' ? 'bg-accent-green' : pipelineHealth.streaming.status === 'Degraded' ? 'bg-accent-orange' : 'bg-accent-red';
+  const batchColor = pipelineHealth.batch.status === 'Healthy' ? 'bg-accent-green' : pipelineHealth.batch.status === 'Degraded' ? 'bg-accent-orange' : 'bg-accent-red';
 
   return (
     <div className="min-h-screen mesh-gradient-bg">
@@ -31,6 +36,19 @@ const AppLayout = () => {
             <span className="hidden md:inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-muted text-[10px] font-medium text-muted-foreground">
               <span className="w-1.5 h-1.5 rounded-full bg-accent-green" />
               Synthetic Demo
+            </span>
+
+            {/* Pipeline Health pills */}
+            <span className="hidden lg:inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-muted text-[10px] font-medium text-muted-foreground">
+              <span className={`w-1.5 h-1.5 rounded-full ${streamColor}`} />
+              Stream
+            </span>
+            <span className="hidden lg:inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-muted text-[10px] font-medium text-muted-foreground">
+              <span className={`w-1.5 h-1.5 rounded-full ${batchColor}`} />
+              Batch
+            </span>
+            <span className="hidden lg:inline-flex items-center gap-1.5 px-2 py-1 rounded-full bg-muted text-[10px] font-medium text-muted-foreground">
+              {minutesAgo}m ago
             </span>
 
             {/* Nav */}

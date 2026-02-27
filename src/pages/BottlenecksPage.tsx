@@ -1,9 +1,11 @@
 import { useState, useMemo } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { useApp } from '@/context/AppContext';
 import { lines, stationsByLine, kbSnippets } from '@/data/sampleData';
 import { rankBottlenecks, type BottleneckResult } from '@/data/mockEngine';
 
 const BottlenecksPage = () => {
+  const navigate = useNavigate();
   const { selectedLineId, setLine } = useApp();
   const [lineId, setLineId] = useState(selectedLineId);
   const [expandedIdx, setExpandedIdx] = useState<number | null>(null);
@@ -97,12 +99,20 @@ const BottlenecksPage = () => {
                           <div className="text-foreground font-semibold">{b.impactPct}%</div>
                         </div>
                       </div>
-                      <button
-                        onClick={() => generateRecommendation(b)}
-                        className="px-4 py-2 rounded-xl text-xs font-semibold bg-accent-purple text-primary-foreground hover:opacity-90 transition-opacity"
-                      >
-                        Generate Recommendation
-                      </button>
+                      <div className="flex gap-2">
+                        <button
+                          onClick={() => generateRecommendation(b)}
+                          className="px-4 py-2 rounded-xl text-xs font-semibold bg-accent-purple text-primary-foreground hover:opacity-90 transition-opacity"
+                        >
+                          Generate Recommendation
+                        </button>
+                        <button
+                          onClick={() => navigate(`/reports?tab=features&line=${lineId}`)}
+                          className="px-4 py-2 rounded-xl text-xs font-semibold border border-border text-muted-foreground hover:bg-muted transition-colors"
+                        >
+                          View Feature Drivers
+                        </button>
+                      </div>
                     </div>
                   </div>
                 </div>
