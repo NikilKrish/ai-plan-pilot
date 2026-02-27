@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef, useCallback } from 'react';
 import { useTypewriter } from '@/hooks/useTypewriter';
 import { useApp } from '@/context/AppContext';
 import { stationsByLine, type ScenarioRecord, type Adjustments } from '@/data/sampleData';
@@ -38,21 +38,30 @@ const WhatIfSimulation = () => {
   });
 
   const [activeTab, setActiveTab] = useState<'scenario' | 'compare'>('scenario');
+  const [runState, setRunState] = useState<'idle' | 'running' | 'done'>('idle');
+  const [selectedScenario, setSelectedScenario] = useState<number | null>(null);
+  const [compareData, setCompareData] = useState<{ label: string; before: number; after: number }[]>([]);
+  const [lastRunLabel, setLastRunLabel] = useState('');
+
+  // Auto-animation state
+  const userInteracted = useRef(false);
   const [cursorVisible, setCursorVisible] = useState(false);
   const [cursorPos, setCursorPos] = useState({ x: -40, y: -40 });
   const [tooltipText, setTooltipText] = useState('');
   const [tooltipVisible, setTooltipVisible] = useState(false);
   const [cursorClick, setCursorClick] = useState(false);
-  const [runState, setRunState] = useState<'idle' | 'running' | 'done'>('idle');
-  const [showToast, setShowToast] = useState(false);
-  const [showCompare, setShowCompare] = useState(false);
-  const [selectedScenario, setSelectedScenario] = useState<number | null>(null);
-  const [compareData, setCompareData] = useState<{ label: string; before: number; after: number }[]>([]);
 
-  const allScenarios = [...scenarios, ...scenarios];
+  const stopDemo = useCallback(() => {
+    if (!userInteracted.current) {
+      userInteracted.current = true;
+      setCursorVisible(false);
+      setTooltipVisible(false);
+    }
+  }, []);
 
   const runScenario = (adj: Adjustments, label: string) => {
     setRunState('running');
+    setLastRunLabel(label);
     setTimeout(() => {
       const stations = stationsByLine[activePlan.lineId];
       const sim = simulateScenario(activePlan, stations, adj);
@@ -71,86 +80,98 @@ const WhatIfSimulation = () => {
         { label: 'Bottlenecks', before: 3, after: 3 + sim.bottleneckCountDelta },
       ]);
       toast.success(`"${label}" completed in 1.2s`);
+      // Auto-switch to compare after run
+      setActiveTab('compare');
       setTimeout(() => setRunState('idle'), 1500);
     }, 700);
   };
 
-  const handleRealRun = () => {
-    const adj = selectedScenario !== null ? scenarios[selectedScenario].adjustments : { shiftDelta: 1, workingHoursDelta: 0, downtimeDeltaPct: 0, scrapDeltaPct: 0 };
-    const label = selectedScenario !== null ? scenarios[selectedScenario].title : 'Custom Scenario';
-    runScenario(adj, label);
-  };
-
   const handleCardClick = (idx: number) => {
-    const realIdx = idx % scenarios.length;
-    setSelectedScenario(realIdx);
-  };
-
-  const handleCardRun = (idx: number) => {
-    const s = scenarios[idx % scenarios.length];
-    setSelectedScenario(idx % scenarios.length);
+    stopDemo();
+    setSelectedScenario(idx);
+    const s = scenarios[idx];
     runScenario(s.adjustments, s.title);
   };
 
-  // Auto-animation loop
+  const handleRunButton = () => {
+    stopDemo();
+    if (selectedScenario !== null) {
+      const s = scenarios[selectedScenario];
+      runScenario(s.adjustments, s.title);
+    } else {
+      // Default: run first scenario
+      setSelectedScenario(0);
+      runScenario(scenarios[0].adjustments, scenarios[0].title);
+    }
+  };
+
+  // Auto-animation loop — runs once then stops, or stops on user interaction
   useEffect(() => {
     let cancelled = false;
     const runAnimation = async () => {
-      while (!cancelled) {
-        setActiveTab('scenario');
-        setShowCompare(false);
-        setRunState('idle');
-        await delay(4000);
-        if (cancelled) return;
-        setCursorVisible(true);
-        setCursorPos({ x: -30, y: 200 });
-        await delay(200);
-        setCursorPos({ x: 320, y: 250 });
-        await delay(700);
-        if (cancelled) return;
-        setTooltipText('Run Scenario');
-        setTooltipVisible(true);
-        await delay(500);
-        setCursorClick(true);
-        setRunState('running');
-        await delay(200);
-        setCursorClick(false);
-        setTooltipVisible(false);
-        await delay(600);
-        setRunState('done');
-        setShowToast(true);
-        await delay(2000);
-        setShowToast(false);
-        setRunState('idle');
-        if (cancelled) return;
-        setCursorPos({ x: 130, y: 14 });
-        await delay(700);
-        setTooltipText('Compare Scenarios');
-        setTooltipVisible(true);
-        await delay(500);
-        setCursorClick(true);
-        await delay(150);
-        setCursorClick(false);
-        setActiveTab('compare');
-        setShowCompare(true);
-        setTooltipVisible(false);
-        await delay(3000);
-        setCursorVisible(false);
-        await delay(2000);
-      }
+      await delay(3000);
+      if (cancelled || userInteracted.current) return;
+      setCursorVisible(true);
+      setCursorPos({ x: -30, y: 200 });
+      await delay(200);
+      if (cancelled || userInteracted.current) return;
+      setCursorPos({ x: 100, y: 160 });
+      await delay(700);
+      if (cancelled || userInteracted.current) return;
+      setTooltipText('Click to simulate');
+      setTooltipVisible(true);
+      await delay(600);
+      if (cancelled || userInteracted.current) return;
+      setCursorClick(true);
+      setSelectedScenario(0);
+      setRunState('running');
+      setLastRunLabel(scenarios[0].title);
+      await delay(200);
+      setCursorClick(false);
+      setTooltipVisible(false);
+      await delay(600);
+      if (cancelled || userInteracted.current) return;
+      // Simulate result
+      setRunState('done');
+      setCompareData([
+        { label: 'Utilization', before: 65, after: 71 },
+        { label: 'Overload', before: 12, after: 8 },
+        { label: 'Bottlenecks', before: 3, after: 2 },
+      ]);
+      await delay(800);
+      if (cancelled || userInteracted.current) return;
+      // Move cursor to Compare tab
+      setCursorPos({ x: 130, y: 14 });
+      await delay(700);
+      if (cancelled || userInteracted.current) return;
+      setTooltipText('View results');
+      setTooltipVisible(true);
+      await delay(500);
+      setCursorClick(true);
+      await delay(150);
+      setCursorClick(false);
+      setActiveTab('compare');
+      setTooltipVisible(false);
+      await delay(2000);
+      setCursorVisible(false);
+      setRunState('idle');
+      // Demo complete — don't loop
     };
     runAnimation();
     return () => { cancelled = true; };
   }, []);
 
   return (
-    <div className="bg-card rounded-3xl shadow-sm border border-border card-lift overflow-hidden col-span-1 md:col-span-2">
+    <div
+      className="bg-card rounded-3xl shadow-sm border border-border card-lift overflow-hidden col-span-1 md:col-span-2"
+      onClick={stopDemo}
+    >
       <div className="min-h-[280px] bg-visual-area border-b border-border relative p-4 sm:p-5 shadow-inner flex flex-col">
         {/* Header */}
         <div className="flex items-center justify-between mb-3 flex-wrap gap-2">
           <div className="flex bg-muted rounded-lg p-0.5">
-            <button onClick={() => { setActiveTab('scenario'); setShowCompare(false); }} className={`px-3 py-1.5 text-xs font-medium rounded-md transition-colors ${activeTab === 'scenario' ? 'bg-card shadow-sm text-foreground' : 'text-muted-foreground hover:text-foreground'}`}>Scenario</button>
-            <button onClick={() => { setActiveTab('compare'); setShowCompare(true); }} className={`px-3 py-1.5 text-xs font-medium rounded-md transition-colors ${activeTab === 'compare' ? 'bg-card shadow-sm text-foreground' : 'text-muted-foreground hover:text-foreground'}`}>Compare</button>
+            <button onClick={() => { stopDemo(); setActiveTab('scenario'); }} className={`px-3 py-1.5 text-xs font-medium rounded-md transition-colors ${activeTab === 'scenario' ? 'bg-card shadow-sm text-foreground' : 'text-muted-foreground hover:text-foreground'}`}>Scenario</button>
+            <button onClick={() => { stopDemo(); setActiveTab('compare'); }} className={`px-3 py-1.5 text-xs font-medium rounded-md transition-colors ${activeTab === 'compare' ? 'bg-card shadow-sm text-foreground' : 'text-muted-foreground hover:text-foreground'}`}>Compare</button>
           </div>
           <div className="flex items-center gap-2">
             <div className="hidden sm:flex -space-x-1.5">
@@ -163,26 +184,24 @@ const WhatIfSimulation = () => {
         </div>
 
         {/* Content */}
-        {activeTab === 'scenario' && !showCompare ? (
+        {activeTab === 'scenario' ? (
           <div className="flex-1 overflow-hidden relative">
+            {/* Horizontally scrollable scenario cards — NO auto-scroll */}
             <div
-              className="flex gap-3 auto-scroll-track"
+              className="flex gap-3 overflow-x-auto pb-2 snap-x snap-mandatory scrollbar-hide"
               style={{
-                width: `${allScenarios.length * 216}px`,
-                maskImage: 'linear-gradient(90deg, transparent 0%, black 8%, black 92%, transparent 100%)',
-                WebkitMaskImage: 'linear-gradient(90deg, transparent 0%, black 8%, black 92%, transparent 100%)',
+                scrollbarWidth: 'none',
+                msOverflowStyle: 'none',
               }}
             >
-              {allScenarios.map((s, i) => {
-                const realIdx = i % scenarios.length;
-                const isSelected = selectedScenario === realIdx;
+              {scenarios.map((s, i) => {
+                const isSelected = selectedScenario === i;
                 return (
                   <div
                     key={i}
-                    onClick={() => handleCardClick(i)}
-                    onDoubleClick={() => handleCardRun(i)}
-                    className={`w-[180px] sm:w-[200px] flex-shrink-0 bg-card rounded-2xl border p-3 shadow-sm cursor-pointer transition-all duration-200 hover:shadow-md hover:-translate-y-0.5 active:scale-[0.97] ${
-                      isSelected ? 'border-accent-orange ring-1 ring-accent-orange/30' : 'border-border'
+                    onClick={(e) => { e.stopPropagation(); handleCardClick(i); }}
+                    className={`w-[170px] sm:w-[190px] flex-shrink-0 bg-card rounded-2xl border p-3 shadow-sm cursor-pointer transition-all duration-200 hover:shadow-md hover:-translate-y-0.5 active:scale-[0.97] snap-start ${
+                      isSelected ? 'border-accent-orange ring-2 ring-accent-orange/30' : 'border-border'
                     }`}
                   >
                     <div className="w-8 h-8 rounded-lg flex items-center justify-center mb-2" style={{ backgroundColor: `hsl(var(--${s.color}-light))`, color: `hsl(var(--${s.color}))` }}>{icons[s.icon] || icons.clock}</div>
@@ -196,32 +215,55 @@ const WhatIfSimulation = () => {
                 );
               })}
             </div>
+            <p className="text-[10px] text-muted-foreground mt-2 text-center">Click a scenario to simulate instantly</p>
           </div>
         ) : (
-          <div className="flex-1 flex items-end gap-2 sm:gap-4 px-2 sm:px-4 pb-2">
-            {(compareData.length > 0 ? compareData : [
-              { label: 'Shift +1', before: 65, after: 85 },
-              { label: 'Reduce Hrs', before: 65, after: 55 },
-              { label: 'Rebalance', before: 65, after: 75 },
-            ]).map((item, i) => (
-              <div key={i} className="flex-1 flex flex-col items-center gap-1 min-w-0">
-                <div className="w-full flex gap-1 items-end justify-center h-20 sm:h-24">
-                  <div className="w-4 sm:w-5 rounded-t transition-all duration-700" style={{ height: `${Math.min(item.before, 100)}%`, backgroundColor: 'hsl(var(--accent-blue))' }} />
-                  <div className="w-4 sm:w-5 rounded-t transition-all duration-700" style={{ height: `${Math.min(Math.max(item.after, 0), 100)}%`, backgroundColor: 'hsl(var(--accent-green))' }} />
-                </div>
-                <span className="text-[8px] sm:text-[9px] text-muted-foreground font-medium truncate max-w-full text-center">{item.label}</span>
+          <div className="flex-1 flex flex-col">
+            {lastRunLabel && (
+              <div className="text-[11px] font-medium text-muted-foreground mb-2">
+                Results for: <span className="text-foreground">{lastRunLabel}</span>
               </div>
-            ))}
+            )}
+            <div className="flex-1 flex items-end gap-2 sm:gap-4 px-2 sm:px-4 pb-2">
+              {(compareData.length > 0 ? compareData : [
+                { label: 'Utilization', before: 65, after: 71 },
+                { label: 'Overload', before: 12, after: 8 },
+                { label: 'Bottlenecks', before: 3, after: 2 },
+              ]).map((item, i) => (
+                <div key={i} className="flex-1 flex flex-col items-center gap-1 min-w-0">
+                  <div className="w-full flex gap-1 items-end justify-center h-20 sm:h-24">
+                    <div className="w-5 sm:w-6 rounded-t transition-all duration-700" style={{ height: `${Math.min(item.before, 100)}%`, backgroundColor: 'hsl(var(--accent-blue))' }} />
+                    <div className="w-5 sm:w-6 rounded-t transition-all duration-700" style={{ height: `${Math.min(Math.max(item.after, 0), 100)}%`, backgroundColor: 'hsl(var(--accent-green))' }} />
+                  </div>
+                  <span className="text-[9px] sm:text-[10px] text-muted-foreground font-medium truncate max-w-full text-center">{item.label}</span>
+                  <div className="flex gap-1 text-[8px]">
+                    <span style={{ color: 'hsl(var(--accent-blue))' }}>{item.before}%</span>
+                    <span className="text-muted-foreground">→</span>
+                    <span style={{ color: 'hsl(var(--accent-green))' }}>{item.after}%</span>
+                  </div>
+                </div>
+              ))}
+            </div>
+            <button
+              onClick={(e) => { e.stopPropagation(); stopDemo(); setActiveTab('scenario'); }}
+              className="mt-2 text-[10px] font-medium text-muted-foreground hover:text-foreground transition-colors self-center"
+            >
+              ← Back to scenarios
+            </button>
           </div>
         )}
 
         {/* Input + Run */}
         <div className="mt-auto pt-3 flex items-center gap-2">
           <div className="flex-1 min-w-0 bg-card rounded-xl border border-border px-3 py-2 text-xs text-muted-foreground truncate">
-            {displayText}<span className="typewriter-cursor" />
+            {selectedScenario !== null ? (
+              <span className="text-foreground font-medium">{scenarios[selectedScenario].title}</span>
+            ) : (
+              <>{displayText}<span className="typewriter-cursor" /></>
+            )}
           </div>
           <button
-            onClick={handleRealRun}
+            onClick={(e) => { e.stopPropagation(); handleRunButton(); }}
             disabled={runState === 'running'}
             className="px-4 sm:px-5 py-2 rounded-xl text-xs font-semibold text-primary-foreground transition-all duration-200 flex-shrink-0 disabled:opacity-70"
             style={{
@@ -234,12 +276,7 @@ const WhatIfSimulation = () => {
           </button>
         </div>
 
-        {showToast && (
-          <div className="absolute bottom-16 right-4 sm:right-5 bg-foreground text-primary-foreground text-[11px] font-medium px-3 py-2 rounded-lg shadow-lg" style={{ animation: 'toastIn 0.3s ease-out' }}>
-            Scenario completed in 1.2s
-          </div>
-        )}
-
+        {/* Demo cursor overlay */}
         {cursorVisible && (
           <div className="mock-cursor hidden sm:block" style={{ left: cursorPos.x, top: cursorPos.y, transform: cursorClick ? 'scale(0.9)' : 'scale(1)' }}>
             <svg width="20" height="20" viewBox="0 0 24 24" fill="hsl(var(--accent-green))" stroke="white" strokeWidth="1.5"><path d="M5 3l14 8-7 2-3 7z" /></svg>
@@ -249,7 +286,7 @@ const WhatIfSimulation = () => {
       </div>
       <div className="p-4 sm:p-5">
         <h3 className="font-semibold text-foreground text-base">What-If Engine</h3>
-        <p className="text-xs sm:text-sm text-muted-foreground mt-1">Simulate multiple scenarios in seconds (shifts, hours, model mix) and compare outcomes.</p>
+        <p className="text-xs sm:text-sm text-muted-foreground mt-1">Click any scenario card to simulate instantly. Compare before/after outcomes side by side.</p>
       </div>
     </div>
   );
