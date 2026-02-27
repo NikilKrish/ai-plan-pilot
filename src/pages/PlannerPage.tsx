@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { useApp } from '@/context/AppContext';
 import { lines, stationsByLine, type Plan } from '@/data/sampleData';
 import { predictCapacity, validatePlan, type PredictionResult, type ValidationResult } from '@/data/mockEngine';
@@ -6,6 +7,7 @@ import { Skeleton } from '@/components/ui/skeleton';
 import { toast } from 'sonner';
 
 const PlannerPage = () => {
+  const navigate = useNavigate();
   const { activePlan, setPlan, selectedLineId, setLine } = useApp();
   const [lineId, setLineId] = useState(activePlan.lineId || selectedLineId);
   const [workingHours, setWorkingHours] = useState(activePlan.workingHours);
@@ -152,6 +154,9 @@ const PlannerPage = () => {
           </button>
           <button onClick={handleExport} className="py-2.5 px-4 rounded-xl text-xs font-semibold border border-border text-muted-foreground hover:bg-muted transition-colors">
             Export
+          </button>
+          <button onClick={() => navigate('/reports?tab=models&highlight=capacityPrediction')} className="py-2.5 px-4 rounded-xl text-xs font-semibold border border-border text-muted-foreground hover:bg-muted transition-colors">
+            Model Confidence
           </button>
         </div>
       </div>

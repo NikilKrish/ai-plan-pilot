@@ -1,4 +1,5 @@
 import { useState, useMemo } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { useApp } from '@/context/AppContext';
 import { stationsByLine, type Adjustments, type ScenarioRecord } from '@/data/sampleData';
 import { simulateScenario, predictCapacity, validatePlan } from '@/data/mockEngine';
@@ -6,6 +7,7 @@ import { Skeleton } from '@/components/ui/skeleton';
 import { toast } from 'sonner';
 
 const SimulationsPage = () => {
+  const navigate = useNavigate();
   const { activePlan, addScenario, pendingAdjustments, setPendingAdjustments } = useApp();
 
   const [adjustments, setAdj] = useState<Adjustments>(
@@ -94,6 +96,9 @@ const SimulationsPage = () => {
 
           <button onClick={handleRun} className="w-full py-3 rounded-xl text-sm font-semibold bg-accent-orange text-primary-foreground hover:opacity-90 transition-opacity">
             Run Scenario
+          </button>
+          <button onClick={() => navigate('/reports?tab=feedback')} className="w-full py-2 rounded-xl text-xs font-semibold border border-border text-muted-foreground hover:bg-muted transition-colors">
+            Track Actuals →
           </button>
         </div>
 
