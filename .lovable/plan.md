@@ -1,135 +1,79 @@
 
 
-# Upgrade Dashboard to Interactive Mini-App
+# Revamp: Reports → Ops & Feedback (Architecture-Aligned)
 
-This is a large upgrade that transforms the static animated dashboard into a functional single-page application with routing, sample data, mock AI engine, and 4 new pages.
-
-## Architecture
-
-```text
-src/
-├── data/
-│   ├── sampleData.ts          # lines, stations, plans, kbSnippets
-│   └── mockEngine.ts          # predictCapacity, validatePlan, rankBottlenecks, simulateScenario
-├── context/
-│   └── AppContext.tsx          # Global state provider (selectedLineId, activePlan, predictions, history, etc.)
-├── components/
-│   ├── NavLink.tsx             # (update) Active nav link styling
-│   ├── layout/
-│   │   └── AppLayout.tsx       # Sticky header + nav + view container
-│   ├── shared/
-│   │   ├── Toast.tsx           # Reusable toast system (success/info/error)
-│   │   ├── Skeleton.tsx        # Loading skeleton components
-│   │   └── FormField.tsx       # Inline validated form fields
-│   └── dashboard/
-│       ├── DashboardHeader.tsx  # (remove standalone header, merge into AppLayout)
-│       ├── CapacityPredictor.tsx # Keep animations, no changes needed
-│       ├── FeasibilityValidator.tsx # Add "Open Planner" button, wire to global plan state
-│       ├── BottleneckDetection.tsx  # Wire rows to rankBottlenecks(), add "Generate Recommendation"
-│       ├── WhatIfSimulation.tsx     # Wire "Run" button to simulateScenario(), update scenario cards
-│       └── AIRecommendations.tsx    # Wire "Apply" button to navigate to Simulations
-├── pages/
-│   ├── Index.tsx               # Overview (existing grid)
-│   ├── PlannerPage.tsx         # Form + results card
-│   ├── BottlenecksPage.tsx     # Filter + table + detail drawer
-│   ├── SimulationsPage.tsx     # Baseline + adjustments + comparison bars
-│   └── ReportsPage.tsx         # Scenario history table + insights + export
-└── App.tsx                     # Hash-based routing with 5 routes
-```
+## Summary
+Transform the Reports page into a 5-tab "Ops & Feedback" hub mirroring the PDF architecture. Add pipeline health pills to the dashboard header. Add cross-page deep links. All mock data, no API calls, existing design system preserved.
 
 ## Implementation Steps
 
-### 1. Sample Data (`src/data/sampleData.ts`)
-- `lines`: 3 production lines (LINE_A, LINE_B, LINE_C)
-- `stationsByLine`: 8-10 stations per line with `meanCycleTimeSec`, `variancePct`, `downtimeMinPerShift`, `scrapPct`
-- `plans`: 3 preset plan templates with `lineId`, `workingHours`, `shifts`, `plannedUnits`, `taktTimeSec`, dates
-- `scenarioHistory`: starts empty
-- `kbSnippets`: 5-6 definitions (cycle time vs takt time, bottleneck definition, downtime effects, etc.)
+### Step 1: Create `src/data/pipelineData.ts`
+All new mock data in one file:
+- `pipelineHealth` — streaming (Kafka, status/lag/lastEvent/validationPct) + batch (MES/Planning DB, lastSync/rows/errors)
+- `ingestionEvents` — 20 events with ts, sourceType, entityType, lineId, stationId, status (validated/dropped), reason
+- `featureSnapshots` — per line+station: availabilityPct, effectiveCycleTimeSec, downtimeNormalizedPct, rollupLevel, ts (derived from existing station data)
+- `modelRuns` — 5 model objects matching PDF page 9 table (ARIMA/LSTM, Regression/ML, Supervised ML, Rules/Classification, Constraint Optimization) each with ts, status, confidence, drift, notes, techniqueLabel, inputs, outputs, whyItMatters
+- `deviationLog` — 20 entries with planned/actual/gap/reasonCode/actionTaken/resolved
+- `kpiImpact` — beforeAfter using exact PDF values from pages 11-13
+- `kpiMapping` — 5 rows from PDF page 11 table
+- Extended `kbSnippets` — 6 more definitions (effective cycle time, downtime forecast, bottleneck threshold, availability calc, OEE, drift detection)
 
-### 2. Mock AI Engine (`src/data/mockEngine.ts`)
-Deterministic functions using the formulas specified:
-- `predictCapacity(plan, stations)` → `{ predictedCapacityUnits, confidence, drivers[] }`
-- `validatePlan(plan, predictedCapacity)` → `{ feasible, overloadPct/idlePct, warnings[] }`
-- `rankBottlenecks(stations)` → top 5 ranked with reason strings
-- `simulateScenario(plan, adjustments)` → `{ utilizationDelta, overloadDelta, bottleneckCountDelta, feasibleAfter }`
+### Step 2: Create 5 tab components (parallel)
 
-### 3. Global State (`src/context/AppContext.tsx`)
-React Context with:
-- `selectedLineId`, `activePlan`, `lastPrediction`, `lastValidation`, `lastBottlenecks`
-- `scenarioHistory` array (persisted to localStorage optionally)
-- `settings.reducedMotion` boolean
-- Actions: `setPlan`, `addScenario`, `navigate`, `setLine`
+**`src/pages/ops/IngestionTab.tsx`**
+- Two status cards top row (streaming + batch) with status pill, lag, timestamp, validation %
+- Validated Events table (last 20) with Line and Source type filter selects
+- Schema Validation mini-card with CSS pass rate bar
+- "Simulate New Event" button — appends event, updates timestamps, shows toast
 
-### 4. App Layout & Navigation (`src/components/layout/AppLayout.tsx`)
-- Sticky top header bar with title/subtitle on left
-- Right-side nav: Overview, Planner, Bottlenecks, Simulations, Reports (pill-style links)
-- Dark mode toggle preserved
-- Status pills ("Data: Synthetic Demo", "Latency: 1.2s")
+**`src/pages/ops/FeaturesTab.tsx`**
+- Line selector (A/B/C) using existing select style
+- 3 metric cards: Availability %, Effective Cycle Time, Downtime Normalized %
+- Station table: Station | Availability | Eff Cycle Time | Downtime Norm | Scrap Proxy | Trend (CSS mini-bars)
+- Row click opens Sheet drawer with station→line roll-up
+- Accepts `preselectedLine` and `preselectedStation` props for deep linking
 
-### 5. Routing (`src/App.tsx`)
-- Use `react-router-dom` hash-based routing (`HashRouter` or hash paths)
-- Routes: `/` (Overview), `/planner`, `/bottlenecks`, `/simulations`, `/reports`
-- Wrap everything in `AppProvider`
+**`src/pages/ops/ModelsTab.tsx`**
+- 5 model cards in responsive grid (matching PDF's AI Model Selection Rationale)
+- Each card: status pill, last run, confidence %, drift badge, "View run details"
+- "View run details" opens Sheet with inputs, outputs, "Why it matters"
+- "Run All Models (Mock)" button — skeleton 800ms then update timestamps
+- Accepts `highlightModel` prop for deep linking
 
-### 6. Wire Existing Card Buttons
+**`src/pages/ops/FeedbackTab.tsx`**
+- Summary cards: Planned Units, Actual Units, Gap %, Trend
+- Deviation Log table (last 20) with reason codes and severity pill
+- Retraining card: last retrain, next scheduled, data freshness
+- "Mark deviation resolved" per-row action with toast
 
-**Card 2 (FeasibilityValidator):**
-- Add "Open Planner" button below Export Verdict
-- On click: navigate to `/planner`, set `activePlan` from current typewriter target
-- Typewriter cycles also update global `activePlan` context
+**`src/pages/ops/KpiImpactTab.tsx`**
+- KPI Mapping table (AI Model → Key KPIs → Business Value)
+- Before vs After grouped into 5 categories with exact PDF values
+- "One Slide Summary" callout card with 5 headline improvements
 
-**Card 3 (BottleneckDetection):**
-- Clicking a row manually (not just cursor animation) expands details from `rankBottlenecks()` using selected line's stations
-- Add "Generate Recommendation" button in expanded drawer
-- On click: build recommendation string from `kbSnippets` + station reason, show in styled callout
+### Step 3: Rewrite `src/pages/ReportsPage.tsx`
+- Rename header to "Ops & Feedback"
+- Add pill-style tab bar: Ingestion | Features | Models | Feedback | KPI Impact
+- Read URL search params (`useSearchParams`) for deep linking (`?tab=features&line=LINE_A`, `?tab=models&highlight=capacityPrediction`, `?tab=feedback`)
+- Each tab renders its component
+- Existing history table + insights + settings move under Feedback tab or remain as a collapsible section
 
-**Card 4 (WhatIfSimulation):**
-- "Run" button calls `simulateScenario()` with default +1 shift adjustment
-- Pushes result to `scenarioHistory`
-- Shows toast "Scenario completed in 1.2s"
-- Updates scenario carousel to include newest result
+### Step 4: Update `src/components/layout/AppLayout.tsx`
+- Change nav label "Reports" → "Ops & Feedback" (route stays `/reports`)
+- Add Pipeline Health pill group in header (next to existing "Synthetic Demo" pill):
+  - Streaming: colored dot + "Healthy"
+  - Batch: colored dot + "Healthy"
+  - Freshness: "2m ago"
 
-**Card 5 (AIRecommendations):**
-- "Apply" button: applies suggested adjustment to active plan, navigates to `/simulations` with pre-filled adjustment, shows toast "Draft scenario created"
-
-### 7. New Pages
-
-**PlannerPage:**
-- Left: Form card with Line select (A/B/C), Working Hours slider (6-12), Shifts select (1-3), Planned Units input
-- Buttons: "Predict Capacity" (runs `predictCapacity`), "Validate Plan" (runs `validatePlan`), "Export JSON" (downloads blob)
-- Right: Results card with capacity number + confidence progress bar, feasibility pill + warnings list
-- 600-900ms simulated loading with skeleton
-
-**BottlenecksPage:**
-- Line filter dropdown
-- Table/list of top stations from `rankBottlenecks()`
-- Click row → detail drawer with insights + "Generate Recommendation" callout
-- Styled consistently with dashboard cards
-
-**SimulationsPage:**
-- Baseline plan display
-- Adjustment controls: shift (+/- 1), working hours (+/- 1), downtime % (+/- 5), scrap % (+/- 1)
-- "Run Scenario" button → `simulateScenario()`, adds to history
-- Comparison section with CSS-only bar charts showing before/after deltas
-
-**ReportsPage:**
-- Scenario History table (last 10 runs) with timestamp, line, adjustments, result
-- "Export All" button downloads full history as JSON
-- Insights panel: best scenario, worst bottleneck frequency, average feasibility rate
-- LocalStorage persistence toggle
-- Manual reduced motion toggle
-
-### 8. UX Polish
-- Custom toast system component (success green, info blue, error red) with auto-dismiss
-- Loading skeletons (600-900ms random delay) before showing prediction/validation results
-- Inline form validation with red error messages
-- `prefers-reduced-motion` check sets `settings.reducedMotion` on mount
-- Manual toggle on Reports page overrides it
+### Step 5: Add cross-page links
+- **`src/pages/BottlenecksPage.tsx`** — Add "View feature drivers" button → `/reports?tab=features&line={lineId}`
+- **`src/pages/PlannerPage.tsx`** — Add "View model confidence" button → `/reports?tab=models&highlight=capacityPrediction`
+- **`src/pages/SimulationsPage.tsx`** — Add "Track actuals" button → `/reports?tab=feedback`
 
 ## Technical Notes
-- All data is in-memory JS, no external fetches
-- Uses `react-router-dom` already installed for routing
-- Toast uses custom lightweight component (not radix) for the in-card toasts; page-level toasts use sonner
-- Skeleton component already exists at `src/components/ui/skeleton.tsx`
-- Existing card animations continue running on Overview page unchanged
+- All data in-memory with `useState` for mutable state (event simulation, deviation resolution)
+- Tab selection via `useSearchParams` from react-router-dom — no new dependencies
+- Reuse existing patterns: `bg-card rounded-3xl shadow-sm border border-border`, skeleton loaders, toast via sonner, status pills with dot indicators, Sheet component for drawers
+- Responsive: mobile-first grid layouts matching existing patterns
+- No theme changes, no new fonts, no new color tokens
 
