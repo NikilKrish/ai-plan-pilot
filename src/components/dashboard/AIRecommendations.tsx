@@ -67,7 +67,10 @@ const AIRecommendations = () => {
   }, []);
 
   return (
-    <div className="bg-card rounded-3xl shadow-sm border border-border card-lift overflow-hidden">
+    <div
+      className="bg-card rounded-3xl shadow-sm border border-border card-lift overflow-hidden cursor-pointer hover:scale-[1.01] transition-transform"
+      onClick={() => navigate('/bottlenecks')}
+    >
       <div className="h-[280px] bg-visual-area border-b border-border relative p-5 shadow-inner">
         <div className="bg-card rounded-2xl border border-border p-4 shadow-sm h-full overflow-hidden relative">
           <div className="text-sm font-semibold text-foreground mb-3">Recommendations</div>
@@ -91,7 +94,10 @@ const AIRecommendations = () => {
 
           {toolbarVisible && (
             <div className="absolute left-1/2 -translate-x-1/2 top-[68px] floating-toolbar z-40">
-              <div className="bg-foreground text-primary-foreground rounded-lg px-2 py-1.5 flex items-center gap-1 shadow-xl relative">
+              <div
+                className="bg-foreground text-primary-foreground rounded-lg px-2 py-1.5 flex items-center gap-1 shadow-xl relative"
+                onClick={(e) => e.stopPropagation()}
+              >
                 <div className="absolute -bottom-1 left-1/2 -translate-x-1/2 w-2 h-2 bg-foreground rotate-45" />
                 <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="hsl(var(--accent-purple))" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
                   <path d="M12 3l1.5 4.5L18 9l-4.5 1.5L12 15l-1.5-4.5L6 9l4.5-1.5z" />

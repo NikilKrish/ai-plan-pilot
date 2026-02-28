@@ -1,4 +1,5 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { useTypewriter } from '@/hooks/useTypewriter';
 import { useApp } from '@/context/AppContext';
 import { stationsByLine, type ScenarioRecord, type Adjustments } from '@/data/sampleData';
@@ -31,6 +32,7 @@ const icons: Record<string, JSX.Element> = {
 };
 
 const WhatIfSimulation = () => {
+  const navigate = useNavigate();
   const { activePlan, addScenario } = useApp();
   const { displayText } = useTypewriter({
     texts: ['Simulate: Line A + Shift 2 + 1250 units', 'What if downtime increases by 10%?'],
@@ -163,13 +165,13 @@ const WhatIfSimulation = () => {
 
   return (
     <div
-      className="bg-card rounded-3xl shadow-sm border border-border card-lift overflow-hidden col-span-1 md:col-span-2"
-      onClick={stopDemo}
+      className="bg-card rounded-3xl shadow-sm border border-border card-lift overflow-hidden col-span-1 md:col-span-2 cursor-pointer hover:scale-[1.01] transition-transform"
+      onClick={() => { stopDemo(); navigate('/simulations'); }}
     >
       <div className="min-h-[280px] bg-visual-area border-b border-border relative p-4 sm:p-5 shadow-inner flex flex-col">
         {/* Header */}
         <div className="flex items-center justify-between mb-3 flex-wrap gap-2">
-          <div className="flex bg-muted rounded-lg p-0.5">
+          <div className="flex bg-muted rounded-lg p-0.5" onClick={(e) => e.stopPropagation()}>
             <button onClick={() => { stopDemo(); setActiveTab('scenario'); }} className={`px-3 py-1.5 text-xs font-medium rounded-md transition-colors ${activeTab === 'scenario' ? 'bg-card shadow-sm text-foreground' : 'text-muted-foreground hover:text-foreground'}`}>Scenario</button>
             <button onClick={() => { stopDemo(); setActiveTab('compare'); }} className={`px-3 py-1.5 text-xs font-medium rounded-md transition-colors ${activeTab === 'compare' ? 'bg-card shadow-sm text-foreground' : 'text-muted-foreground hover:text-foreground'}`}>Compare</button>
           </div>
@@ -179,7 +181,7 @@ const WhatIfSimulation = () => {
                 <img key={n} src={`https://i.pravatar.cc/24?img=${n}`} alt="" className="w-6 h-6 rounded-full border-2 border-visual-area" />
               ))}
             </div>
-            <button className="text-[10px] font-medium px-2.5 py-1.5 rounded-md border border-border text-muted-foreground hover:bg-muted transition-colors">Share</button>
+            <button onClick={(e) => e.stopPropagation()} className="text-[10px] font-medium px-2.5 py-1.5 rounded-md border border-border text-muted-foreground hover:bg-muted transition-colors">Share</button>
           </div>
         </div>
 
@@ -200,9 +202,8 @@ const WhatIfSimulation = () => {
                   <div
                     key={i}
                     onClick={(e) => { e.stopPropagation(); handleCardClick(i); }}
-                    className={`w-[170px] sm:w-[190px] flex-shrink-0 bg-card rounded-2xl border p-3 shadow-sm cursor-pointer transition-all duration-200 hover:shadow-md hover:-translate-y-0.5 active:scale-[0.97] snap-start ${
-                      isSelected ? 'border-accent-orange ring-2 ring-accent-orange/30' : 'border-border'
-                    }`}
+                    className={`w-[170px] sm:w-[190px] flex-shrink-0 bg-card rounded-2xl border p-3 shadow-sm cursor-pointer transition-all duration-200 hover:shadow-md hover:-translate-y-0.5 active:scale-[0.97] snap-start ${isSelected ? 'border-accent-orange ring-2 ring-accent-orange/30' : 'border-border'
+                      }`}
                   >
                     <div className="w-8 h-8 rounded-lg flex items-center justify-center mb-2" style={{ backgroundColor: `hsl(var(--${s.color}-light))`, color: `hsl(var(--${s.color}))` }}>{icons[s.icon] || icons.clock}</div>
                     <div className="text-xs font-semibold text-foreground mb-2">{s.title}</div>

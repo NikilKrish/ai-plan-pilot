@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react';
+import { useNavigate } from 'react-router-dom';
 
 const pills = [
   {
@@ -44,6 +45,7 @@ const posClasses = [
 ];
 
 const CapacityPredictor = () => {
+  const navigate = useNavigate();
   const [positions, setPositions] = useState([0, 1, 2]);
   const [transitioning, setTransitioning] = useState<number | null>(null);
 
@@ -65,7 +67,10 @@ const CapacityPredictor = () => {
   }, []);
 
   return (
-    <div className="bg-card rounded-3xl shadow-sm border border-border card-lift overflow-hidden">
+    <div 
+      className="bg-card rounded-3xl shadow-sm border border-border card-lift overflow-hidden cursor-pointer hover:scale-[1.01] transition-transform"
+      onClick={() => navigate('/planner')}
+    >
       <div className="h-[280px] bg-visual-area border-b border-border relative p-6 shadow-inner">
         <div className="relative h-full">
           {pills.map((pill, i) => {
