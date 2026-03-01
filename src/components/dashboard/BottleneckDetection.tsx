@@ -2,9 +2,10 @@ import { useState, useEffect, useRef } from 'react';
 import { useApp } from '@/context/AppContext';
 import { stationsByLine, kbSnippets } from '@/data/sampleData';
 import { rankBottlenecks } from '@/data/mockEngine';
+import { buildDashboardSummary } from '@/data/planComparison';
 
 const BottleneckDetection = () => {
-  const { selectedLineId } = useApp();
+  const { selectedLineId, activeUpload } = useApp();
   const [expandedRow, setExpandedRow] = useState<number | null>(null);
   const [recommendation, setRecommendation] = useState<string | null>(null);
   const [cursorPos, setCursorPos] = useState({ x: -40, y: -40 });
@@ -14,6 +15,9 @@ const BottleneckDetection = () => {
   const [cursorClick, setCursorClick] = useState(false);
   const [barsAnimated, setBarsAnimated] = useState(false);
   const containerRef = useRef<HTMLDivElement>(null);
+
+  const isContextual = !!activeUpload;
+  const summary = isContextual ? buildDashboardSummary(activeUpload) : null;
 
   const bottlenecks = rankBottlenecks(stationsByLine[selectedLineId]);
   const displayStations = bottlenecks.slice(0, 4).map((b) => ({
@@ -30,8 +34,8 @@ const BottleneckDetection = () => {
 
   useEffect(() => { setBarsAnimated(true); }, []);
 
-  // Auto-animation loop
   useEffect(() => {
+    if (isContextual) return;
     let cancelled = false;
     const runAnimation = async () => {
       while (!cancelled) {
@@ -70,7 +74,7 @@ const BottleneckDetection = () => {
     };
     runAnimation();
     return () => { cancelled = true; };
-  }, []);
+  }, [isContextual]);
 
   const handleRowClick = (i: number) => {
     setExpandedRow(expandedRow === i ? null : i);
@@ -87,12 +91,14 @@ const BottleneckDetection = () => {
   };
 
   return (
-    <div className="bg-card rounded-3xl shadow-sm border border-border card-lift overflow-hidden">
+    <div className="bg-card rounded-3xl shadow-sm border border-border card-lift overflow-hidden" data-testid="card-bottleneck-detection">
       <div className="h-[280px] bg-visual-area border-b border-border relative p-5 shadow-inner" ref={containerRef}>
         <div className="bg-card rounded-2xl border border-border p-4 shadow-sm h-full overflow-hidden relative">
           <div className="flex items-center justify-between mb-3">
             <span className="text-sm font-semibold text-foreground">Bottlenecks</span>
-            <span className="text-[10px] font-medium px-2 py-0.5 rounded-full bg-accent-red-light text-accent-red">Top Constraints</span>
+            <span className="text-[10px] font-medium px-2 py-0.5 rounded-full bg-accent-red-light text-accent-red">
+              {isContextual ? `${summary?.bottleneckCount || 0} found` : 'Top Constraints'}
+            </span>
           </div>
 
           <div className="space-y-1">
@@ -101,6 +107,7 @@ const BottleneckDetection = () => {
                 <div
                   className="flex items-center gap-2 py-1.5 px-2 rounded-lg hover:bg-muted/50 transition-colors cursor-pointer"
                   onClick={() => handleRowClick(i)}
+                  data-testid={`row-bottleneck-${i}`}
                 >
                   <span className="text-[10px] font-bold text-muted-foreground w-6">{i + 1}</span>
                   <span className="text-[11px] font-medium text-foreground flex-1 truncate">{station.label}</span>
@@ -135,14 +142,13 @@ const BottleneckDetection = () => {
             ))}
           </div>
 
-          {/* Recommendation callout */}
           {recommendation && (
             <div className="absolute bottom-2 left-2 right-2 bg-accent-purple-light border border-accent-purple/20 rounded-xl p-2 text-[10px] text-foreground z-30">
               {recommendation}
             </div>
           )}
 
-          {cursorVisible && (
+          {!isContextual && cursorVisible && (
             <div className="mock-cursor" style={{ left: cursorPos.x, top: cursorPos.y, transform: cursorClick ? 'scale(0.9)' : 'scale(1)' }}>
               <svg width="20" height="20" viewBox="0 0 24 24" fill="hsl(var(--accent-blue))" stroke="white" strokeWidth="1.5">
                 <path d="M5 3l14 8-7 2-3 7z" />

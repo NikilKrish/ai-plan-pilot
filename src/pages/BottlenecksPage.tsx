@@ -3,11 +3,13 @@ import { useNavigate } from 'react-router-dom';
 import { useApp } from '@/context/AppContext';
 import { lines, stationsByLine, kbSnippets } from '@/data/sampleData';
 import { rankBottlenecks, type BottleneckResult } from '@/data/mockEngine';
+import UploadContextBanner from '@/components/layout/UploadContextBanner';
 
 const BottlenecksPage = () => {
   const navigate = useNavigate();
-  const { selectedLineId, setLine } = useApp();
-  const [lineId, setLineId] = useState(selectedLineId);
+  const { selectedLineId, setLine, activeUpload } = useApp();
+  const uploadLineId = activeUpload?.meta.lineIds[0];
+  const [lineId, setLineId] = useState(uploadLineId || selectedLineId);
   const [expandedIdx, setExpandedIdx] = useState<number | null>(null);
   const [recommendation, setRecommendation] = useState<string | null>(null);
 
@@ -38,6 +40,7 @@ const BottlenecksPage = () => {
 
   return (
     <div className="space-y-6">
+      <UploadContextBanner />
       {/* Filter bar */}
       <div className="flex items-center gap-3">
         <h2 className="text-lg font-bold text-foreground">Bottleneck Analysis</h2>

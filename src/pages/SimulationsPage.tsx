@@ -3,12 +3,21 @@ import { useNavigate } from 'react-router-dom';
 import { useApp } from '@/context/AppContext';
 import { stationsByLine, type Adjustments, type ScenarioRecord } from '@/data/sampleData';
 import { simulateScenario, predictCapacity, validatePlan } from '@/data/mockEngine';
+import { buildScenarioBaseline } from '@/data/planComparison';
 import { Skeleton } from '@/components/ui/skeleton';
 import { toast } from 'sonner';
+import UploadContextBanner from '@/components/layout/UploadContextBanner';
 
 const SimulationsPage = () => {
   const navigate = useNavigate();
-  const { activePlan, addScenario, pendingAdjustments, setPendingAdjustments } = useApp();
+  const { activePlan, addScenario, pendingAdjustments, setPendingAdjustments, activeUpload } = useApp();
+
+  const effectivePlan = useMemo(() => {
+    if (activeUpload) {
+      return buildScenarioBaseline(activeUpload).plan;
+    }
+    return activePlan;
+  }, [activeUpload, activePlan]);
 
   const [adjustments, setAdj] = useState<Adjustments>(
     pendingAdjustments ?? { shiftDelta: 1, workingHoursDelta: 0, downtimeDeltaPct: 0, scrapDeltaPct: 0 }
@@ -22,25 +31,25 @@ const SimulationsPage = () => {
   } | null>(null);
   const [loading, setLoading] = useState(false);
 
-  const stations = stationsByLine[activePlan.lineId];
+  const stations = stationsByLine[effectivePlan.lineId];
 
   const baseline = useMemo(() => {
-    const pred = predictCapacity(activePlan, stations);
-    const val = validatePlan(activePlan, pred.predictedCapacityUnits);
-    return { capacity: pred.predictedCapacityUnits, feasible: val.feasible, utilization: Math.round((pred.predictedCapacityUnits / activePlan.plannedUnits) * 100) };
-  }, [activePlan, stations]);
+    const pred = predictCapacity(effectivePlan, stations);
+    const val = validatePlan(effectivePlan, pred.predictedCapacityUnits);
+    return { capacity: pred.predictedCapacityUnits, feasible: val.feasible, utilization: Math.round((pred.predictedCapacityUnits / effectivePlan.plannedUnits) * 100) };
+  }, [effectivePlan, stations]);
 
   const handleRun = async () => {
     setLoading(true);
     setResult(null);
     await new Promise((r) => setTimeout(r, 700 + Math.random() * 300));
-    const sim = simulateScenario(activePlan, stations, adjustments);
+    const sim = simulateScenario(effectivePlan, stations, adjustments);
     setResult(sim);
 
     const record: ScenarioRecord = {
       id: `SCN_${Date.now()}`,
       timestamp: new Date().toISOString(),
-      lineId: activePlan.lineId,
+      lineId: effectivePlan.lineId,
       adjustments: { ...adjustments },
       result: sim,
     };
@@ -57,6 +66,7 @@ const SimulationsPage = () => {
 
   return (
     <div className="space-y-6">
+      <UploadContextBanner />
       <h2 className="text-lg font-bold text-foreground">Scenario Simulation</h2>
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
@@ -65,10 +75,10 @@ const SimulationsPage = () => {
           <div>
             <div className="text-xs font-semibold text-muted-foreground mb-2">Baseline Plan</div>
             <div className="bg-visual-area rounded-2xl p-4 border border-border text-sm text-foreground grid grid-cols-2 gap-2">
-              <div>Line: <span className="font-semibold">{activePlan.lineId.replace('LINE_', '')}</span></div>
-              <div>Shifts: <span className="font-semibold">{activePlan.shifts}</span></div>
-              <div>Hours: <span className="font-semibold">{activePlan.workingHours}h</span></div>
-              <div>Target: <span className="font-semibold">{activePlan.plannedUnits} units</span></div>
+              <div>Line: <span className="font-semibold">{effectivePlan.lineId.replace('LINE_', '')}</span></div>
+              <div>Shifts: <span className="font-semibold">{effectivePlan.shifts}</span></div>
+              <div>Hours: <span className="font-semibold">{effectivePlan.workingHours}h</span></div>
+              <div>Target: <span className="font-semibold">{effectivePlan.plannedUnits} units</span></div>
               <div>Capacity: <span className="font-semibold">{baseline.capacity}</span></div>
               <div>Utilization: <span className="font-semibold">{baseline.utilization}%</span></div>
             </div>

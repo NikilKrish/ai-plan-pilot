@@ -1,11 +1,37 @@
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useEffect } from 'react';
 import { makeDeviationLog, type Deviation } from '@/data/pipelineData';
 import { useApp } from '@/context/AppContext';
+import { buildDeviationLog } from '@/data/planComparison';
 import { toast } from 'sonner';
 
 const FeedbackTab = () => {
-  const { scenarioHistory } = useApp();
-  const [deviations, setDeviations] = useState<Deviation[]>(() => makeDeviationLog());
+  const { scenarioHistory, activeUpload } = useApp();
+
+  const baseDeviations = useMemo(() => makeDeviationLog(), []);
+
+  const deviationsWithUpload = useMemo(() => {
+    if (activeUpload) {
+      const uploadDeviations = buildDeviationLog(activeUpload);
+      const mapped: Deviation[] = uploadDeviations.map((d, i) => ({
+        id: `DEV_UPLOAD_${i}`,
+        ts: new Date().toISOString(),
+        lineId: d.lineId,
+        plannedUnits: d.plannedUnits,
+        actualUnits: d.measuredUnits,
+        severity: (Math.abs(d.gapPct) > 10 ? 'high' : Math.abs(d.gapPct) > 5 ? 'med' : 'low') as Deviation['severity'],
+        reasonCode: d.gapPct > 0 ? 'under_capacity' : 'over_capacity',
+        resolved: false,
+      }));
+      return [...mapped, ...baseDeviations];
+    }
+    return baseDeviations;
+  }, [activeUpload, baseDeviations]);
+
+  const [deviations, setDeviations] = useState<Deviation[]>(deviationsWithUpload);
+
+  useEffect(() => {
+    setDeviations(deviationsWithUpload);
+  }, [deviationsWithUpload]);
 
   const summary = useMemo(() => {
     const totalPlanned = deviations.reduce((a, d) => a + d.plannedUnits, 0);

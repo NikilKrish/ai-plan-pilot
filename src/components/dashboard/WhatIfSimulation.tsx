@@ -4,6 +4,7 @@ import { useTypewriter } from '@/hooks/useTypewriter';
 import { useApp } from '@/context/AppContext';
 import { stationsByLine, type ScenarioRecord, type Adjustments } from '@/data/sampleData';
 import { simulateScenario } from '@/data/mockEngine';
+import { buildDashboardSummary } from '@/data/planComparison';
 import { toast } from 'sonner';
 
 const scenarios = [
@@ -33,9 +34,12 @@ const icons: Record<string, JSX.Element> = {
 
 const WhatIfSimulation = () => {
   const navigate = useNavigate();
-  const { activePlan, addScenario } = useApp();
+  const { activePlan, addScenario, activeUpload } = useApp();
+  const isContextual = !!activeUpload;
+  const summary = isContextual ? buildDashboardSummary(activeUpload) : null;
+
   const { displayText } = useTypewriter({
-    texts: ['Simulate: Line A + Shift 2 + 1250 units', 'What if downtime increases by 10%?'],
+    texts: isContextual ? [] : ['Simulate: Line A + Shift 2 + 1250 units', 'What if downtime increases by 10%?'],
     typeSpeed: 50, deleteSpeed: 20, pauseDuration: 3000,
   });
 
@@ -45,7 +49,6 @@ const WhatIfSimulation = () => {
   const [compareData, setCompareData] = useState<{ label: string; before: number; after: number }[]>([]);
   const [lastRunLabel, setLastRunLabel] = useState('');
 
-  // Auto-animation state
   const userInteracted = useRef(false);
   const [cursorVisible, setCursorVisible] = useState(false);
   const [cursorPos, setCursorPos] = useState({ x: -40, y: -40 });
@@ -82,7 +85,6 @@ const WhatIfSimulation = () => {
         { label: 'Bottlenecks', before: 3, after: 3 + sim.bottleneckCountDelta },
       ]);
       toast.success(`"${label}" completed in 1.2s`);
-      // Auto-switch to compare after run
       setActiveTab('compare');
       setTimeout(() => setRunState('idle'), 1500);
     }, 700);
@@ -101,14 +103,13 @@ const WhatIfSimulation = () => {
       const s = scenarios[selectedScenario];
       runScenario(s.adjustments, s.title);
     } else {
-      // Default: run first scenario
       setSelectedScenario(0);
       runScenario(scenarios[0].adjustments, scenarios[0].title);
     }
   };
 
-  // Auto-animation loop — runs once then stops, or stops on user interaction
   useEffect(() => {
+    if (isContextual) return;
     let cancelled = false;
     const runAnimation = async () => {
       await delay(3000);
@@ -133,7 +134,6 @@ const WhatIfSimulation = () => {
       setTooltipVisible(false);
       await delay(600);
       if (cancelled || userInteracted.current) return;
-      // Simulate result
       setRunState('done');
       setCompareData([
         { label: 'Utilization', before: 65, after: 71 },
@@ -142,7 +142,6 @@ const WhatIfSimulation = () => {
       ]);
       await delay(800);
       if (cancelled || userInteracted.current) return;
-      // Move cursor to Compare tab
       setCursorPos({ x: 130, y: 14 });
       await delay(700);
       if (cancelled || userInteracted.current) return;
@@ -157,53 +156,46 @@ const WhatIfSimulation = () => {
       await delay(2000);
       setCursorVisible(false);
       setRunState('idle');
-      // Demo complete — don't loop
     };
     runAnimation();
     return () => { cancelled = true; };
-  }, []);
+  }, [isContextual]);
 
   return (
     <div
       className="bg-card rounded-3xl shadow-sm border border-border card-lift overflow-hidden col-span-1 md:col-span-2 cursor-pointer hover:scale-[1.01] transition-transform"
       onClick={() => { stopDemo(); navigate('/simulations'); }}
+      data-testid="card-what-if-simulation"
     >
       <div className="min-h-[280px] bg-visual-area border-b border-border relative p-4 sm:p-5 shadow-inner flex flex-col">
-        {/* Header */}
         <div className="flex items-center justify-between mb-3 flex-wrap gap-2">
           <div className="flex bg-muted rounded-lg p-0.5" onClick={(e) => e.stopPropagation()}>
-            <button onClick={() => { stopDemo(); setActiveTab('scenario'); }} className={`px-3 py-1.5 text-xs font-medium rounded-md transition-colors ${activeTab === 'scenario' ? 'bg-card shadow-sm text-foreground' : 'text-muted-foreground hover:text-foreground'}`}>Scenario</button>
-            <button onClick={() => { stopDemo(); setActiveTab('compare'); }} className={`px-3 py-1.5 text-xs font-medium rounded-md transition-colors ${activeTab === 'compare' ? 'bg-card shadow-sm text-foreground' : 'text-muted-foreground hover:text-foreground'}`}>Compare</button>
+            <button onClick={() => { stopDemo(); setActiveTab('scenario'); }} className={`px-3 py-1.5 text-xs font-medium rounded-md transition-colors ${activeTab === 'scenario' ? 'bg-card shadow-sm text-foreground' : 'text-muted-foreground hover:text-foreground'}`} data-testid="tab-scenario">Scenario</button>
+            <button onClick={() => { stopDemo(); setActiveTab('compare'); }} className={`px-3 py-1.5 text-xs font-medium rounded-md transition-colors ${activeTab === 'compare' ? 'bg-card shadow-sm text-foreground' : 'text-muted-foreground hover:text-foreground'}`} data-testid="tab-compare">Compare</button>
           </div>
           <div className="flex items-center gap-2">
-            <div className="hidden sm:flex -space-x-1.5">
-              {[20, 21].map((n) => (
-                <img key={n} src={`https://i.pravatar.cc/24?img=${n}`} alt="" className="w-6 h-6 rounded-full border-2 border-visual-area" />
-              ))}
-            </div>
+            {!isContextual && (
+              <div className="hidden sm:flex -space-x-1.5">
+                {[20, 21].map((n) => (
+                  <img key={n} src={`https://i.pravatar.cc/24?img=${n}`} alt="" className="w-6 h-6 rounded-full border-2 border-visual-area" />
+                ))}
+              </div>
+            )}
             <button onClick={(e) => e.stopPropagation()} className="text-[10px] font-medium px-2.5 py-1.5 rounded-md border border-border text-muted-foreground hover:bg-muted transition-colors">Share</button>
           </div>
         </div>
 
-        {/* Content */}
         {activeTab === 'scenario' ? (
           <div className="flex-1 overflow-hidden relative">
-            {/* Horizontally scrollable scenario cards — NO auto-scroll */}
-            <div
-              className="flex gap-3 overflow-x-auto pb-2 snap-x snap-mandatory scrollbar-hide"
-              style={{
-                scrollbarWidth: 'none',
-                msOverflowStyle: 'none',
-              }}
-            >
+            <div className="flex gap-3 overflow-x-auto pb-2 snap-x snap-mandatory scrollbar-hide" style={{ scrollbarWidth: 'none', msOverflowStyle: 'none' }}>
               {scenarios.map((s, i) => {
                 const isSelected = selectedScenario === i;
                 return (
                   <div
                     key={i}
                     onClick={(e) => { e.stopPropagation(); handleCardClick(i); }}
-                    className={`w-[170px] sm:w-[190px] flex-shrink-0 bg-card rounded-2xl border p-3 shadow-sm cursor-pointer transition-all duration-200 hover:shadow-md hover:-translate-y-0.5 active:scale-[0.97] snap-start ${isSelected ? 'border-accent-orange ring-2 ring-accent-orange/30' : 'border-border'
-                      }`}
+                    className={`w-[170px] sm:w-[190px] flex-shrink-0 bg-card rounded-2xl border p-3 shadow-sm cursor-pointer transition-all duration-200 hover:shadow-md hover:-translate-y-0.5 active:scale-[0.97] snap-start ${isSelected ? 'border-accent-orange ring-2 ring-accent-orange/30' : 'border-border'}`}
+                    data-testid={`card-scenario-${i}`}
                   >
                     <div className="w-8 h-8 rounded-lg flex items-center justify-center mb-2" style={{ backgroundColor: `hsl(var(--${s.color}-light))`, color: `hsl(var(--${s.color}))` }}>{icons[s.icon] || icons.clock}</div>
                     <div className="text-xs font-semibold text-foreground mb-2">{s.title}</div>
@@ -254,11 +246,12 @@ const WhatIfSimulation = () => {
           </div>
         )}
 
-        {/* Input + Run */}
         <div className="mt-auto pt-3 flex items-center gap-2">
           <div className="flex-1 min-w-0 bg-card rounded-xl border border-border px-3 py-2 text-xs text-muted-foreground truncate">
             {selectedScenario !== null ? (
               <span className="text-foreground font-medium">{scenarios[selectedScenario].title}</span>
+            ) : isContextual ? (
+              <span className="text-foreground font-medium">Baseline: {summary?.plannedUnitsTotal.toLocaleString()} units</span>
             ) : (
               <>{displayText}<span className="typewriter-cursor" /></>
             )}
@@ -272,13 +265,13 @@ const WhatIfSimulation = () => {
               boxShadow: runState === 'idle' ? '0 0 12px hsla(var(--accent-orange), 0.3)' : 'none',
               transform: runState === 'running' ? 'scale(0.95)' : 'scale(1)',
             }}
+            data-testid="button-run-scenario"
           >
             {runState === 'running' ? '...' : runState === 'done' ? '✓' : 'Run'}
           </button>
         </div>
 
-        {/* Demo cursor overlay */}
-        {cursorVisible && (
+        {!isContextual && cursorVisible && (
           <div className="mock-cursor hidden sm:block" style={{ left: cursorPos.x, top: cursorPos.y, transform: cursorClick ? 'scale(0.9)' : 'scale(1)' }}>
             <svg width="20" height="20" viewBox="0 0 24 24" fill="hsl(var(--accent-green))" stroke="white" strokeWidth="1.5"><path d="M5 3l14 8-7 2-3 7z" /></svg>
             <div className={`cursor-tooltip ${tooltipVisible ? 'visible' : ''}`}>{tooltipText}</div>

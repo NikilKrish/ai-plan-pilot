@@ -5,14 +5,19 @@ import { lines, stationsByLine, type Plan } from '@/data/sampleData';
 import { predictCapacity, validatePlan, type PredictionResult, type ValidationResult } from '@/data/mockEngine';
 import { Skeleton } from '@/components/ui/skeleton';
 import { toast } from 'sonner';
+import UploadContextBanner from '@/components/layout/UploadContextBanner';
 
 const PlannerPage = () => {
   const navigate = useNavigate();
-  const { activePlan, setPlan, selectedLineId, setLine } = useApp();
-  const [lineId, setLineId] = useState(activePlan.lineId || selectedLineId);
+  const { activePlan, setPlan, selectedLineId, setLine, activeUpload } = useApp();
+
+  const uploadLineId = activeUpload?.meta.lineIds[0];
+  const uploadPlannedUnits = activeUpload?.aggregates.plannedUnitsTotal;
+
+  const [lineId, setLineId] = useState(uploadLineId || activePlan.lineId || selectedLineId);
   const [workingHours, setWorkingHours] = useState(activePlan.workingHours);
   const [shifts, setShifts] = useState(activePlan.shifts);
-  const [plannedUnits, setPlannedUnits] = useState(activePlan.plannedUnits);
+  const [plannedUnits, setPlannedUnits] = useState(uploadPlannedUnits || activePlan.plannedUnits);
   const [errors, setErrors] = useState<Record<string, string>>({});
 
   const [prediction, setPrediction] = useState<PredictionResult | null>(null);
@@ -77,6 +82,8 @@ const PlannerPage = () => {
   };
 
   return (
+    <div className="space-y-0">
+      <UploadContextBanner />
     <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
       {/* Form card */}
       <div className="bg-card rounded-3xl shadow-sm border border-border p-6">
@@ -236,6 +243,7 @@ const PlannerPage = () => {
           </div>
         )}
       </div>
+    </div>
     </div>
   );
 };

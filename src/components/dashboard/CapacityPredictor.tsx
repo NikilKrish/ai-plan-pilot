@@ -1,5 +1,7 @@
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { useApp } from '@/context/AppContext';
+import { buildDashboardSummary } from '@/data/planComparison';
 
 const pills = [
   {
@@ -46,78 +48,109 @@ const posClasses = [
 
 const CapacityPredictor = () => {
   const navigate = useNavigate();
+  const { activeUpload } = useApp();
   const [positions, setPositions] = useState([0, 1, 2]);
   const [transitioning, setTransitioning] = useState<number | null>(null);
 
+  const isContextual = !!activeUpload;
+  const summary = isContextual ? buildDashboardSummary(activeUpload) : null;
+
   useEffect(() => {
+    if (isContextual) return;
     const interval = setInterval(() => {
       setPositions((prev) => {
         const newPos = [...prev];
         const lastIdx = newPos.findIndex((p) => p === 2);
         setTransitioning(lastIdx);
-
-        // Rotate: 2->0, 0->1, 1->2
         return newPos.map((p) => (p === 0 ? 1 : p === 1 ? 2 : 0));
       });
-
       setTimeout(() => setTransitioning(null), 50);
     }, 3000);
-
     return () => clearInterval(interval);
-  }, []);
+  }, [isContextual]);
 
   return (
-    <div 
+    <div
       className="bg-card rounded-3xl shadow-sm border border-border card-lift overflow-hidden cursor-pointer hover:scale-[1.01] transition-transform"
-      onClick={() => navigate('/planner')}
+      onClick={() => navigate(isContextual ? '/planner' : '/planner')}
+      data-testid="card-capacity-predictor"
     >
       <div className="h-[280px] bg-visual-area border-b border-border relative p-6 shadow-inner">
-        <div className="relative h-full">
-          {pills.map((pill, i) => {
-            const pos = positions[i];
-            const pc = posClasses[pos];
-            const isTransitioning = transitioning === i && pos === 0;
-
-            return (
-              <div
-                key={i}
-                className={`absolute left-0 right-0 mx-auto w-[85%] spring-transition ${isTransitioning ? '' : ''}`}
-                style={{
-                  transform: isTransitioning
-                    ? `translateY(-70px) scale(1)`
-                    : `translateY(${pc.y}px) scale(${pc.scale})`,
-                  opacity: isTransitioning ? 0 : pc.opacity,
-                  filter: `blur(${isTransitioning ? 0 : pc.blur}px)`,
-                  zIndex: pc.z,
-                  transition: isTransitioning ? 'none' : undefined,
-                }}
-              >
-                <div className="bg-card rounded-2xl border border-border p-4 shadow-sm flex items-center gap-3">
-                  <div
-                    className="w-10 h-10 rounded-xl flex items-center justify-center"
-                    style={{ backgroundColor: `hsl(var(--${pill.color}-light))`, color: `hsl(var(--${pill.color}))` }}
-                  >
-                    {pill.icon}
-                  </div>
-                  <span className="text-sm font-semibold text-foreground">{pill.label}</span>
+        {isContextual && summary ? (
+          <div className="h-full flex flex-col justify-center items-center text-center gap-4">
+            <div className="text-3xl font-bold tracking-tight text-foreground" data-testid="text-predicted-capacity">
+              {summary.predictedCapacity.toLocaleString()}
+            </div>
+            <div className="text-xs text-muted-foreground">Predicted Capacity (units)</div>
+            <div className="flex gap-6 mt-2">
+              {summary.capacityDrivers.map((d) => (
+                <div key={d.name} className="text-center">
+                  <div className="text-sm font-semibold">{d.impactPct}%</div>
+                  <div className="text-[10px] text-muted-foreground">{d.name}</div>
                 </div>
+              ))}
+            </div>
+            <div className="w-full max-w-[200px]">
+              <div className="text-[10px] text-muted-foreground mb-1 font-medium">Confidence {Math.round(summary.capacityConfidence * 100)}%</div>
+              <div className="h-1.5 rounded-full bg-border">
+                <div
+                  className="h-full rounded-full"
+                  style={{
+                    width: `${summary.capacityConfidence * 100}%`,
+                    background: `linear-gradient(90deg, hsl(var(--accent-green)), hsl(var(--accent-blue)))`,
+                  }}
+                />
               </div>
-            );
-          })}
-        </div>
-        {/* Forecast band */}
-        <div className="absolute bottom-4 left-6 right-6">
-          <div className="text-[10px] text-muted-foreground mb-1 font-medium">Forecast Confidence</div>
-          <div className="h-1.5 rounded-full bg-border shimmer-bar">
-            <div
-              className="h-full rounded-full"
-              style={{
-                width: '75%',
-                background: `linear-gradient(90deg, hsl(var(--accent-green)), hsl(var(--accent-blue)))`,
-              }}
-            />
+            </div>
           </div>
-        </div>
+        ) : (
+          <div className="relative h-full">
+            {pills.map((pill, i) => {
+              const pos = positions[i];
+              const pc = posClasses[pos];
+              const isTransitioning = transitioning === i && pos === 0;
+              return (
+                <div
+                  key={i}
+                  className="absolute left-0 right-0 mx-auto w-[85%] spring-transition"
+                  style={{
+                    transform: isTransitioning
+                      ? `translateY(-70px) scale(1)`
+                      : `translateY(${pc.y}px) scale(${pc.scale})`,
+                    opacity: isTransitioning ? 0 : pc.opacity,
+                    filter: `blur(${isTransitioning ? 0 : pc.blur}px)`,
+                    zIndex: pc.z,
+                    transition: isTransitioning ? 'none' : undefined,
+                  }}
+                >
+                  <div className="bg-card rounded-2xl border border-border p-4 shadow-sm flex items-center gap-3">
+                    <div
+                      className="w-10 h-10 rounded-xl flex items-center justify-center"
+                      style={{ backgroundColor: `hsl(var(--${pill.color}-light))`, color: `hsl(var(--${pill.color}))` }}
+                    >
+                      {pill.icon}
+                    </div>
+                    <span className="text-sm font-semibold text-foreground">{pill.label}</span>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        )}
+        {!isContextual && (
+          <div className="absolute bottom-4 left-6 right-6">
+            <div className="text-[10px] text-muted-foreground mb-1 font-medium">Forecast Confidence</div>
+            <div className="h-1.5 rounded-full bg-border shimmer-bar">
+              <div
+                className="h-full rounded-full"
+                style={{
+                  width: '75%',
+                  background: `linear-gradient(90deg, hsl(var(--accent-green)), hsl(var(--accent-blue)))`,
+                }}
+              />
+            </div>
+          </div>
+        )}
       </div>
       <div className="p-5">
         <h3 className="font-semibold text-foreground text-base">Realistic Capacity Predictor</h3>

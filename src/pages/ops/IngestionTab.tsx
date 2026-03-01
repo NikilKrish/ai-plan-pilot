@@ -1,9 +1,35 @@
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useEffect } from 'react';
 import { pipelineHealth, makeIngestionEvents, type IngestionEvent } from '@/data/pipelineData';
+import { useApp } from '@/context/AppContext';
 import { toast } from 'sonner';
 
 const IngestionTab = () => {
-  const [events, setEvents] = useState<IngestionEvent[]>(() => makeIngestionEvents());
+  const { activeUpload } = useApp();
+
+  const baseEvents = useMemo(() => makeIngestionEvents(), []);
+
+  const eventsWithUpload = useMemo(() => {
+    if (activeUpload) {
+      const uploadEvent: IngestionEvent = {
+        id: `EVT_UPLOAD_${activeUpload.meta.uploadId}`,
+        ts: activeUpload.meta.createdAt,
+        sourceType: 'planning',
+        entityType: 'plan_upload',
+        lineId: activeUpload.meta.lineIds[0] || 'LINE_A',
+        stationId: 'ALL',
+        status: 'validated',
+      };
+      return [uploadEvent, ...baseEvents];
+    }
+    return baseEvents;
+  }, [activeUpload, baseEvents]);
+
+  const [events, setEvents] = useState<IngestionEvent[]>(eventsWithUpload);
+
+  useEffect(() => {
+    setEvents(eventsWithUpload);
+  }, [eventsWithUpload]);
+
   const [streaming, setStreaming] = useState(pipelineHealth.streaming);
   const [lineFilter, setLineFilter] = useState('all');
   const [sourceFilter, setSourceFilter] = useState('all');
