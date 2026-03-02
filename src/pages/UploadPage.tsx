@@ -172,14 +172,13 @@ export default function UploadPage() {
                     onChange={handleFileSelect}
                     data-testid="input-file-upload"
                   />
-                </div>
 
-                <div className="w-full border-t border-dashed border-border mt-6 pt-4 flex justify-center">
                   <a
                     href="/sample-production-plan.xlsx"
                     download
+                    onClick={(e) => e.stopPropagation()}
                     data-testid="download-sample-link"
-                    className="inline-flex items-center gap-2 px-5 py-2.5 rounded-full text-sm font-medium
+                    className="inline-flex items-center gap-2 px-5 py-2 rounded-full text-sm font-medium mt-5
                       bg-[hsl(var(--accent-blue))]/10 text-[hsl(var(--accent-blue))]
                       hover:bg-[hsl(var(--accent-blue))]/20 transition-colors"
                   >
