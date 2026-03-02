@@ -127,16 +127,18 @@ export function buildDeviationLog(uploadCtx: UploadContext): DeviationLogEntry[]
   return entries;
 }
 
-export function buildScenarioBaseline(uploadCtx: UploadContext): ScenarioBaseline {
+export function buildScenarioBaseline(uploadCtx: UploadContext, selectedLineId?: string): ScenarioBaseline {
   const { meta, aggregates } = uploadCtx;
-  const primaryLine = meta.lineIds[0] || 'LINE_A';
+  const targetLine = selectedLineId || meta.lineIds[0] || 'LINE_A';
   const stationLineKey = Object.keys(stationsByLine).find(
-    (k) => k === primaryLine || k === primaryLine.toUpperCase().replace(' ', '_')
+    (k) => k === targetLine || k === targetLine.toUpperCase().replace(' ', '_')
   ) || 'LINE_A';
 
   const dates = Object.keys(aggregates.plannedUnitsByDay).sort();
   const dayCount = dates.length || 1;
-  const dailyPlanned = aggregates.plannedUnitsTotal / dayCount;
+
+  const lineUnits = aggregates.plannedUnitsByLine[targetLine] ?? aggregates.plannedUnitsTotal;
+  const dailyPlanned = lineUnits / dayCount;
 
   return {
     plan: {

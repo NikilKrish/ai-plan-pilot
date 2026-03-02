@@ -174,15 +174,19 @@ export default function UploadPage() {
                   />
                 </div>
 
-                <a
-                  href="/sample-production-plan.xlsx"
-                  download
-                  data-testid="download-sample-link"
-                  className="inline-flex items-center gap-1.5 text-xs text-muted-foreground hover:text-foreground transition-colors mt-2"
-                >
-                  <FileDown className="w-3.5 h-3.5" />
-                  Download sample template
-                </a>
+                <div className="w-full border-t border-dashed border-border mt-6 pt-4 flex justify-center">
+                  <a
+                    href="/sample-production-plan.xlsx"
+                    download
+                    data-testid="download-sample-link"
+                    className="inline-flex items-center gap-2 px-5 py-2.5 rounded-full text-sm font-medium
+                      bg-[hsl(var(--accent-blue))]/10 text-[hsl(var(--accent-blue))]
+                      hover:bg-[hsl(var(--accent-blue))]/20 transition-colors"
+                  >
+                    <FileDown className="w-4 h-4" />
+                    Download sample template
+                  </a>
+                </div>
               </CardContent>
             </Card>
           )}

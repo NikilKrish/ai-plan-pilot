@@ -1,4 +1,4 @@
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useApp } from '@/context/AppContext';
 import { stationsByLine, type Adjustments, type ScenarioRecord } from '@/data/sampleData';
@@ -12,12 +12,22 @@ const SimulationsPage = () => {
   const navigate = useNavigate();
   const { activePlan, addScenario, pendingAdjustments, setPendingAdjustments, activeUpload } = useApp();
 
+  const uploadLines = activeUpload?.meta.lineIds || [];
+  const [selectedLine, setSelectedLine] = useState(uploadLines[0] || '');
+
+  useEffect(() => {
+    if (uploadLines.length > 0 && !uploadLines.includes(selectedLine)) {
+      setSelectedLine(uploadLines[0]);
+      setResult(null);
+    }
+  }, [uploadLines]);
+
   const effectivePlan = useMemo(() => {
     if (activeUpload) {
-      return buildScenarioBaseline(activeUpload).plan;
+      return buildScenarioBaseline(activeUpload, selectedLine || undefined).plan;
     }
     return activePlan;
-  }, [activeUpload, activePlan]);
+  }, [activeUpload, activePlan, selectedLine]);
 
   const [adjustments, setAdj] = useState<Adjustments>(
     pendingAdjustments ?? { shiftDelta: 1, workingHoursDelta: 0, downtimeDeltaPct: 0, scrapDeltaPct: 0 }
@@ -73,7 +83,21 @@ const SimulationsPage = () => {
         {/* Controls */}
         <div className="bg-card rounded-3xl shadow-sm border border-border p-6 space-y-5">
           <div>
-            <div className="text-xs font-semibold text-muted-foreground mb-2">Baseline Plan</div>
+            <div className="flex items-center justify-between mb-2">
+              <div className="text-xs font-semibold text-muted-foreground">Baseline Plan</div>
+              {uploadLines.length > 1 && (
+                <select
+                  value={selectedLine}
+                  onChange={(e) => { setSelectedLine(e.target.value); setResult(null); }}
+                  className="rounded-lg border border-border bg-card px-2.5 py-1 text-xs text-foreground focus:outline-none focus:ring-2 focus:ring-ring"
+                  data-testid="select-simulation-line"
+                >
+                  {uploadLines.map((l) => (
+                    <option key={l} value={l}>{l.replace('LINE_', 'Line ')}</option>
+                  ))}
+                </select>
+              )}
+            </div>
             <div className="bg-visual-area rounded-2xl p-4 border border-border text-sm text-foreground grid grid-cols-2 gap-2">
               <div>Line: <span className="font-semibold">{effectivePlan.lineId.replace('LINE_', '')}</span></div>
               <div>Shifts: <span className="font-semibold">{effectivePlan.shifts}</span></div>
