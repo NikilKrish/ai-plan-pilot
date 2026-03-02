@@ -352,8 +352,8 @@ export default function UploadPage() {
 
 function MetricTile({ label, value, testId }: { label: string; value: string; testId: string }) {
   return (
-    <div className="bg-muted/50 rounded-xl p-3 text-center" data-testid={testId}>
-      <p className="text-lg font-bold tracking-tight">{value}</p>
+    <div className="bg-muted/50 rounded-xl p-3 text-center flex flex-col justify-center min-h-[72px]" data-testid={testId}>
+      <p className="text-lg font-bold tracking-tight whitespace-nowrap">{value}</p>
       <p className="text-[10px] text-muted-foreground uppercase tracking-wider mt-0.5">{label}</p>
     </div>
   );
