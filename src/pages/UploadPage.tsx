@@ -1,6 +1,6 @@
 import { useState, useCallback, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { FileSpreadsheet, Upload, CheckCircle2, AlertCircle, ArrowRight, Clock, Trash2, ChevronRight, Loader2, FileUp } from 'lucide-react';
+import { FileSpreadsheet, Upload, CheckCircle2, AlertCircle, ArrowRight, Clock, Trash2, ChevronRight, Loader2, FileUp, FileDown } from 'lucide-react';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -173,6 +173,16 @@ export default function UploadPage() {
                     data-testid="input-file-upload"
                   />
                 </div>
+
+                <a
+                  href="/sample-production-plan.xlsx"
+                  download
+                  data-testid="download-sample-link"
+                  className="inline-flex items-center gap-1.5 text-xs text-muted-foreground hover:text-foreground transition-colors mt-2"
+                >
+                  <FileDown className="w-3.5 h-3.5" />
+                  Download sample template
+                </a>
               </CardContent>
             </Card>
           )}

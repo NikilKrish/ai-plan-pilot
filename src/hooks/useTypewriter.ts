@@ -14,6 +14,7 @@ export function useTypewriter({ texts, typeSpeed = 60, deleteSpeed = 30, pauseDu
   const timeoutRef = useRef<ReturnType<typeof setTimeout>>();
 
   useEffect(() => {
+    if (!texts.length) return;
     const currentFullText = texts[textIndex];
 
     if (!isDeleting) {
